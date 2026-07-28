@@ -38,55 +38,70 @@ function Field({
   );
 }
 
-function IdUploadField() {
+function IdUploadField({
+  error,
+  onFileChange,
+}: {
+  error?: string;
+  onFileChange?: (file: File | null) => void;
+}) {
   const [fileName, setFileName] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   function handleFiles(files: FileList | null) {
-    if (files && files[0]) setFileName(files[0].name);
+    const file = files?.[0] ?? null;
+    setFileName(file?.name ?? null);
+    onFileChange?.(file);
   }
 
   return (
-    <div
-      className={cn(
-        "relative flex flex-col items-center gap-2 rounded-lg border-2 border-dashed p-6 text-center transition-colors",
-        dragActive ? "border-primary bg-primary/5" : "border-border",
-      )}
-      onDragOver={(e) => {
-        e.preventDefault();
-        setDragActive(true);
-      }}
-      onDragLeave={() => setDragActive(false)}
-      onDrop={(e) => {
-        e.preventDefault();
-        setDragActive(false);
-        if (inputRef.current) inputRef.current.files = e.dataTransfer.files;
-        handleFiles(e.dataTransfer.files);
-      }}
-    >
-      <Upload className="size-6 text-muted-foreground" />
-      <p className="text-sm text-muted-foreground">
-        {fileName ?? "Drag a photo here, or click to select a file"}
-      </p>
-      <input
-        ref={inputRef}
-        id="idImage"
-        name="idImage"
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        required
-        className="absolute inset-0 size-0 opacity-0"
-        onChange={(e) => handleFiles(e.target.files)}
-      />
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={() => inputRef.current?.click()}
+    <div className="space-y-2">
+      <div
+        className={cn(
+          "relative flex flex-col items-center gap-2 rounded-lg border-2 border-dashed p-6 text-center transition-colors",
+          error
+            ? "border-destructive/50 bg-destructive/5"
+            : dragActive
+              ? "border-primary bg-primary/5"
+              : "border-border",
+        )}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragActive(true);
+        }}
+        onDragLeave={() => setDragActive(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragActive(false);
+          if (inputRef.current) inputRef.current.files = e.dataTransfer.files;
+          handleFiles(e.dataTransfer.files);
+        }}
       >
-        Choose file
-      </Button>
+        <Upload className="size-6 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">
+          {fileName ?? "Drag a photo here, or click to select a file"}
+        </p>
+        <input
+          ref={inputRef}
+          id="idImage"
+          name="idImage"
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          aria-invalid={!!error}
+          className="absolute inset-0 size-0 opacity-0"
+          onChange={(e) => handleFiles(e.target.files)}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => inputRef.current?.click()}
+        >
+          Choose file
+        </Button>
+      </div>
+      {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
   );
 }
@@ -96,9 +111,20 @@ export function SignupForm() {
     signup,
     undefined,
   );
+  const [fileError, setFileError] = useState<string | null>(null);
 
   return (
-    <form action={action} className="space-y-8">
+    <form
+      action={action}
+      onSubmit={(e) => {
+        const file = new FormData(e.currentTarget).get("idImage");
+        if (!(file instanceof File) || file.size === 0) {
+          e.preventDefault();
+          setFileError("Please attach a photo of your Tennessee driver's license.");
+        }
+      }}
+      className="space-y-8"
+    >
       {state?.message && (
         <Alert variant="destructive">
           <AlertDescription>{state.message}</AlertDescription>
@@ -200,7 +226,12 @@ export function SignupForm() {
             to a staff member for manual review.
           </p>
         </div>
-        <IdUploadField />
+        <IdUploadField
+          error={fileError ?? undefined}
+          onFileChange={(file) => {
+            if (file) setFileError(null);
+          }}
+        />
       </section>
 
       <Button type="submit" className="w-full" disabled={pending}>
