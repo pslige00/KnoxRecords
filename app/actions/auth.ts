@@ -106,6 +106,7 @@ export async function signup(
 
   // Best-effort AI verification. If it fails, the account stays pending
   // for manual staff review rather than blocking signup entirely.
+  let autoApproved = false;
   try {
     const fileUrl = await uploadIdImage(idImage, user.id);
     const buffer = Buffer.from(await idImage.arrayBuffer());
@@ -135,13 +136,14 @@ export async function signup(
         .set({ accountStatus: "approved" })
         .where(eq(users.id, user.id));
       await sendAccountApprovedEmail(user.email, user.firstName).catch(() => {});
+      autoApproved = true;
     }
   } catch (err) {
     console.error("ID verification failed, leaving account pending", err);
   }
 
   await createSession({ userId: user.id, role: "citizen" });
-  redirect("/account/pending");
+  redirect(autoApproved ? "/dashboard" : "/account/pending");
 }
 
 export async function login(
