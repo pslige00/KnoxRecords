@@ -3,7 +3,12 @@ import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { requests, departments, users } from "@/lib/db/schema";
 import { Card, CardContent } from "@/components/ui/card";
-import { RequestStatusBadge, PriorityBadge } from "@/components/status-badge";
+import {
+  RequestStatusBadge,
+  PriorityBadge,
+  OverdueBadge,
+  isRequestOverdue,
+} from "@/components/status-badge";
 import {
   Table,
   TableBody,
@@ -13,8 +18,21 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getDepartments } from "@/lib/data/departments";
-import { REQUEST_STATUS_LABELS, PRIORITY_LABELS } from "@/lib/status-labels";
+import {
+  REQUEST_STATUS_LABELS,
+  PRIORITY_LABELS,
+  REQUEST_LIFECYCLE_STAGES,
+  REQUEST_LIFECYCLE_STAGE_LABELS,
+} from "@/lib/status-labels";
 import { Inbox } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const STAGE_TILE_STYLES: Record<string, string> = {
+  new: "border-l-blue-500",
+  in_review: "border-l-amber-500",
+  awaiting_records: "border-l-violet-500",
+  completed: "border-l-emerald-500",
+};
 
 export default async function StaffRequestsPage({
   searchParams,
@@ -32,30 +50,59 @@ export default async function StaffRequestsPage({
       : undefined,
   ].filter(Boolean);
 
-  const rows = await db
-    .select({
-      id: requests.id,
-      referenceNo: requests.referenceNo,
-      status: requests.status,
-      priority: requests.priority,
-      createdAt: requests.createdAt,
-      departmentName: departments.name,
-      requesterFirstName: users.firstName,
-      requesterLastName: users.lastName,
-      aiSummary: requests.aiSummary,
-      description: requests.description,
-    })
-    .from(requests)
-    .innerJoin(departments, eq(requests.departmentId, departments.id))
-    .innerJoin(users, eq(requests.userId, users.id))
-    .where(conditions.length ? and(...conditions) : undefined)
-    .orderBy(desc(requests.createdAt));
+  const [rows, allForStats] = await Promise.all([
+    db
+      .select({
+        id: requests.id,
+        referenceNo: requests.referenceNo,
+        status: requests.status,
+        priority: requests.priority,
+        createdAt: requests.createdAt,
+        dueDate: requests.dueDate,
+        departmentName: departments.name,
+        requesterFirstName: users.firstName,
+        requesterLastName: users.lastName,
+        aiSummary: requests.aiSummary,
+        description: requests.description,
+      })
+      .from(requests)
+      .innerJoin(departments, eq(requests.departmentId, departments.id))
+      .innerJoin(users, eq(requests.userId, users.id))
+      .where(conditions.length ? and(...conditions) : undefined)
+      .orderBy(desc(requests.createdAt)),
+    db.select({ status: requests.status, dueDate: requests.dueDate }).from(requests),
+  ]);
+
+  const stageCounts = REQUEST_LIFECYCLE_STAGES.map((stage) => ({
+    stage,
+    count: allForStats.filter((r) => r.status === stage).length,
+  }));
+  const overdueCount = allForStats.filter((r) => isRequestOverdue(r.dueDate, r.status)).length;
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Requests</h1>
         <p className="text-sm text-muted-foreground">{rows.length} results</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        {stageCounts.map(({ stage, count }) => (
+          <Card key={stage} className={cn("border-l-4 py-0", STAGE_TILE_STYLES[stage])}>
+            <CardContent className="py-3.5">
+              <p className="text-2xl font-semibold tabular-nums">{count}</p>
+              <p className="text-xs text-muted-foreground">
+                {REQUEST_LIFECYCLE_STAGE_LABELS[stage]}
+              </p>
+            </CardContent>
+          </Card>
+        ))}
+        <Card className="border-l-4 border-l-orange-500 py-0">
+          <CardContent className="py-3.5">
+            <p className="text-2xl font-semibold tabular-nums">{overdueCount}</p>
+            <p className="text-xs text-muted-foreground">Overdue</p>
+          </CardContent>
+        </Card>
       </div>
 
       <form className="flex flex-wrap items-center gap-3" method="get">
@@ -163,7 +210,10 @@ export default async function StaffRequestsPage({
                       <PriorityBadge priority={r.priority} />
                     </TableCell>
                     <TableCell>
-                      <RequestStatusBadge status={r.status} />
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <RequestStatusBadge status={r.status} />
+                        {isRequestOverdue(r.dueDate, r.status) && <OverdueBadge />}
+                      </div>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {r.createdAt.toLocaleDateString()}

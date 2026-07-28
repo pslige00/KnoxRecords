@@ -11,18 +11,21 @@ const FEATURES = [
     title: "AI-assisted ID verification",
     description:
       "Upload a photo of your Tennessee driver's license and get verified in seconds instead of waiting on manual review.",
+    chipClassName: "bg-blue-600",
   },
   {
     icon: Sparkles,
     title: "Smart request routing",
     description:
       "Describe what you need in plain English — we suggest the right department and priority automatically.",
+    chipClassName: "bg-violet-600",
   },
   {
     icon: Timer,
     title: "Real-time status updates",
     description:
       "Track every request from submission to fulfillment, with email notifications the moment something changes.",
+    chipClassName: "bg-emerald-600",
   },
 ];
 
@@ -41,35 +44,41 @@ export default function Home() {
       </header>
 
       <main id="main-content" className="flex-1">
-        <section className="mx-auto max-w-4xl px-6 py-24 text-center">
-          <span className="mb-6 inline-flex items-center gap-1.5 rounded-full border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-            <FileSearch className="size-3.5" />
-            Public Records Portal
-          </span>
-          <h1 className="text-balance text-4xl font-semibold tracking-tight sm:text-6xl">
-            Public records requests,
-            <br />
-            without the runaround.
-          </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-balance text-lg text-muted-foreground">
-            Submit a request, verify your identity, and track fulfillment
-            end-to-end — with AI helping route and prioritize every request
-            behind the scenes.
-          </p>
-          <div className="mt-10 flex items-center justify-center gap-3">
-            <Button
-              size="lg"
-              render={
-                <Link href="/signup">
-                  Get started <ArrowRight className="size-4" />
-                </Link>
-              }
-            />
-            <Button
-              size="lg"
-              variant="outline"
-              render={<Link href="/login">I already have an account</Link>}
-            />
+        <section className="relative overflow-hidden">
+          <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
+            <div className="absolute -top-24 left-1/4 size-72 rounded-full bg-blue-500/15 blur-3xl dark:bg-blue-500/10" />
+            <div className="absolute -top-32 right-1/4 size-72 rounded-full bg-violet-500/15 blur-3xl dark:bg-violet-500/10" />
+          </div>
+          <div className="mx-auto max-w-4xl px-6 py-24 text-center">
+            <span className="mb-6 inline-flex items-center gap-1.5 rounded-full border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
+              <FileSearch className="size-3.5" />
+              Public Records Portal
+            </span>
+            <h1 className="text-balance text-4xl font-semibold tracking-tight sm:text-6xl">
+              Public records requests,
+              <br />
+              without the runaround.
+            </h1>
+            <p className="mx-auto mt-6 max-w-2xl text-balance text-lg text-muted-foreground">
+              Submit a request, verify your identity, and track fulfillment
+              end-to-end — with AI helping route and prioritize every request
+              behind the scenes.
+            </p>
+            <div className="mt-10 flex items-center justify-center gap-3">
+              <Button
+                size="lg"
+                render={
+                  <Link href="/signup">
+                    Get started <ArrowRight className="size-4" />
+                  </Link>
+                }
+              />
+              <Button
+                size="lg"
+                variant="outline"
+                render={<Link href="/login">I already have an account</Link>}
+              />
+            </div>
           </div>
         </section>
 
@@ -78,7 +87,9 @@ export default function Home() {
             {FEATURES.map((feature) => (
               <Card key={feature.title} className="border-none bg-transparent shadow-none">
                 <CardContent className="flex flex-col items-start gap-3 px-0">
-                  <span className="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                  <span
+                    className={`flex size-10 items-center justify-center rounded-lg text-white ${feature.chipClassName}`}
+                  >
                     <feature.icon className="size-5" />
                   </span>
                   <h3 className="font-semibold">{feature.title}</h3>

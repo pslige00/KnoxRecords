@@ -72,6 +72,32 @@ export const completeRequestSchema = z.object({
   requestId: z.string().uuid(),
 });
 
+export const editRequestSchema = z.object({
+  requestId: z.string().uuid(),
+  departmentId: z.string().uuid({ message: "Select a department." }),
+  description: z
+    .string()
+    .trim()
+    .min(10, { message: "Please describe the records you're requesting (at least 10 characters)." })
+    .max(5000),
+});
+
+export const withdrawRequestSchema = z.object({
+  requestId: z.string().uuid(),
+});
+
+export const deleteRequestSchema = z.object({
+  requestId: z.string().uuid(),
+});
+
+export const extendDueDateSchema = z.object({
+  requestId: z.string().uuid(),
+  newDueDate: z
+    .string()
+    .refine((v) => !Number.isNaN(Date.parse(v)), { message: "Enter a valid date." }),
+  reason: z.string().trim().min(1, { message: "Give a reason for the extension." }).max(1000),
+});
+
 // --- File upload constraints ---
 
 export const ID_IMAGE_MAX_BYTES = 8 * 1024 * 1024; // 8MB

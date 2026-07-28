@@ -10,7 +10,13 @@ import {
 } from "@/lib/db/schema";
 import { getDepartments } from "@/lib/data/departments";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { RequestStatusBadge, PriorityBadge } from "@/components/status-badge";
+import {
+  RequestStatusBadge,
+  PriorityBadge,
+  OverdueBadge,
+  isRequestOverdue,
+} from "@/components/status-badge";
+import { RequestStageTracker } from "@/components/request-stage-tracker";
 import { Badge } from "@/components/ui/badge";
 import { Timeline } from "@/components/timeline";
 import { Button } from "@/components/ui/button";
@@ -18,6 +24,8 @@ import { RoutingForm } from "@/components/staff/routing-form";
 import { UploadDocumentForm } from "@/components/staff/upload-document-form";
 import { InternalNoteForm } from "@/components/staff/internal-note-form";
 import { StatusUpdateForm } from "@/components/staff/status-update-form";
+import { ExtendDueDateForm } from "@/components/staff/extend-due-date-form";
+import { DeleteRequestButton } from "@/components/staff/delete-request-button";
 import { FileText, Download, Sparkles } from "lucide-react";
 
 export default async function StaffRequestDetailPage({
@@ -35,6 +43,8 @@ export default async function StaffRequestDetailPage({
       status: requests.status,
       priority: requests.priority,
       createdAt: requests.createdAt,
+      dueDate: requests.dueDate,
+      dueDateExtendedCount: requests.dueDateExtendedCount,
       departmentId: requests.departmentId,
       departmentName: departments.name,
       aiSummary: requests.aiSummary,
@@ -57,6 +67,7 @@ export default async function StaffRequestDetailPage({
   const suggestedDept = allDepartments.find((d) => d.id === request.aiSuggestedDepartmentId);
   const showAiSuggestion =
     request.aiSuggestedDepartmentId && request.aiSuggestedDepartmentId !== request.departmentId;
+  const overdue = isRequestOverdue(request.dueDate, request.status);
 
   const events = await db
     .select({
@@ -87,13 +98,30 @@ export default async function StaffRequestDetailPage({
             <span className="font-mono text-sm text-muted-foreground">{request.referenceNo}</span>
             <RequestStatusBadge status={request.status} />
             <PriorityBadge priority={request.priority} />
+            {overdue && <OverdueBadge />}
           </div>
           <h1 className="text-2xl font-semibold tracking-tight">{request.departmentName}</h1>
           <p className="text-sm text-muted-foreground">
             {request.requesterFirstName} {request.requesterLastName} · {request.requesterEmail} ·
             Submitted {request.createdAt.toLocaleDateString()}
+            {request.dueDate && (
+              <>
+                {" "}
+                · Due{" "}
+                <span className={overdue ? "font-medium text-orange-700 dark:text-orange-400" : undefined}>
+                  {request.dueDate.toLocaleDateString()}
+                </span>
+                {request.dueDateExtendedCount > 0 && ` (extended ${request.dueDateExtendedCount}x)`}
+              </>
+            )}
           </p>
         </div>
+
+        <Card>
+          <CardContent className="py-2">
+            <RequestStageTracker status={request.status} />
+          </CardContent>
+        </Card>
 
         {showAiSuggestion && suggestedDept && (
           <Card className="border-primary/30 bg-primary/5">
@@ -192,10 +220,28 @@ export default async function StaffRequestDetailPage({
 
         <Card>
           <CardHeader>
+            <CardTitle className="text-base">Due date</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ExtendDueDateForm requestId={request.id} currentDueDate={request.dueDate} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
             <CardTitle className="text-base">Notify requester</CardTitle>
           </CardHeader>
           <CardContent>
             <StatusUpdateForm requestId={request.id} currentStatus={request.status} />
+          </CardContent>
+        </Card>
+
+        <Card className="border-destructive/30">
+          <CardHeader>
+            <CardTitle className="text-base">Danger zone</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <DeleteRequestButton requestId={request.id} />
           </CardContent>
         </Card>
       </div>

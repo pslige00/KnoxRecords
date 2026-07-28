@@ -125,8 +125,10 @@ const REQUEST_SCENARIOS: {
   description: string;
   aiSummary: string;
   priority: "low" | "normal" | "high";
-  status: "new" | "in_review" | "awaiting_records" | "completed" | "rejected";
+  status: "new" | "in_review" | "awaiting_records" | "completed" | "rejected" | "withdrawn";
   withDocument?: boolean;
+  createdDaysAgo?: number;
+  extended?: boolean;
 }[] = [
   {
     citizenEmail: "ava.sorensen@example.com",
@@ -137,6 +139,7 @@ const REQUEST_SCENARIOS: {
     priority: "normal",
     status: "completed",
     withDocument: true,
+    createdDaysAgo: 9,
   },
   {
     citizenEmail: "miguel.torres@example.com",
@@ -146,6 +149,7 @@ const REQUEST_SCENARIOS: {
     aiSummary: "Road maintenance records, Concord Farragut Rd",
     priority: "normal",
     status: "in_review",
+    createdDaysAgo: 3,
   },
   {
     citizenEmail: "brianna.cole@example.com",
@@ -155,6 +159,7 @@ const REQUEST_SCENARIOS: {
     aiSummary: "FY2025 Parks & Rec budget line items and amendments",
     priority: "high",
     status: "new",
+    createdDaysAgo: 1,
   },
   {
     citizenEmail: "devon.ellison@example.com",
@@ -164,6 +169,8 @@ const REQUEST_SCENARIOS: {
     aiSummary: "Commission minutes & votes on Corryton rezoning",
     priority: "normal",
     status: "awaiting_records",
+    createdDaysAgo: 6,
+    extended: true,
   },
   {
     citizenEmail: "priya.nair@example.com",
@@ -173,6 +180,7 @@ const REQUEST_SCENARIOS: {
     aiSummary: "Autopsy report & death certificate (next of kin)",
     priority: "high",
     status: "in_review",
+    createdDaysAgo: 12,
   },
   {
     citizenEmail: "ava.sorensen@example.com",
@@ -183,6 +191,7 @@ const REQUEST_SCENARIOS: {
     priority: "low",
     status: "completed",
     withDocument: true,
+    createdDaysAgo: 14,
   },
   {
     citizenEmail: "devon.ellison@example.com",
@@ -192,6 +201,17 @@ const REQUEST_SCENARIOS: {
     aiSummary: "IT Director position salary range",
     priority: "low",
     status: "rejected",
+    createdDaysAgo: 5,
+  },
+  {
+    citizenEmail: "miguel.torres@example.com",
+    departmentSlug: "parks-recreation",
+    description:
+      "Requesting shelter reservation records and payment logs for Concord Park pavilion for the 2025 season.",
+    aiSummary: "Concord Park pavilion reservation & payment logs, 2025",
+    priority: "low",
+    status: "withdrawn",
+    createdDaysAgo: 4,
   },
 ];
 
@@ -297,6 +317,7 @@ async function main() {
   }
 
   console.log("Seeding requests...");
+  const DAY_MS = 24 * 60 * 60 * 1000;
   for (const scenario of REQUEST_SCENARIOS) {
     const citizen = citizenByEmail.get(scenario.citizenEmail);
     const dept = deptBySlug.get(scenario.departmentSlug);
@@ -304,6 +325,8 @@ async function main() {
 
     const staffMember = insertedStaff[Math.floor(Math.random() * insertedStaff.length)];
     const isTerminal = scenario.status === "completed" || scenario.status === "rejected";
+    const createdAt = new Date(Date.now() - (scenario.createdDaysAgo ?? 0) * DAY_MS);
+    const dueDate = new Date(createdAt.getTime() + (scenario.extended ? 14 : 7) * DAY_MS);
 
     const [request] = await db
       .insert(requests)
@@ -319,6 +342,10 @@ async function main() {
         status: scenario.status,
         priority: scenario.priority,
         assignedStaffId: scenario.status === "new" ? null : staffMember.id,
+        dueDate,
+        dueDateExtendedCount: scenario.extended ? 1 : 0,
+        createdAt,
+        updatedAt: createdAt,
         completedAt: scenario.status === "completed" ? new Date() : null,
       })
       .returning();
@@ -328,6 +355,7 @@ async function main() {
       authorId: citizen.id,
       message: "Request submitted.",
       isCustomerVisible: true,
+      createdAt,
     });
 
     if (scenario.status !== "new") {
@@ -336,6 +364,18 @@ async function main() {
         authorId: staffMember.id,
         message: `Routed to ${dept.name} with ${scenario.priority} priority by ${staffMember.firstName} ${staffMember.lastName}.`,
         isCustomerVisible: false,
+        createdAt: new Date(createdAt.getTime() + 30 * 60 * 1000),
+      });
+    }
+
+    if (scenario.extended) {
+      const originalDueDate = new Date(createdAt.getTime() + 7 * DAY_MS);
+      await db.insert(requestEvents).values({
+        requestId: request.id,
+        authorId: staffMember.id,
+        message: `Response due date extended to ${dueDate.toLocaleDateString(undefined, { dateStyle: "long" })} by ${staffMember.firstName} ${staffMember.lastName}. Reason: Records span multiple archived commission sessions and require additional review time.`,
+        isCustomerVisible: true,
+        createdAt: new Date(originalDueDate.getTime() - DAY_MS),
       });
     }
 
@@ -367,6 +407,15 @@ async function main() {
         requestId: request.id,
         authorId: staffMember.id,
         message,
+        isCustomerVisible: true,
+      });
+    }
+
+    if (scenario.status === "withdrawn") {
+      await db.insert(requestEvents).values({
+        requestId: request.id,
+        authorId: citizen.id,
+        message: "Request withdrawn by the requester.",
         isCustomerVisible: true,
       });
     }

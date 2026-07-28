@@ -7,6 +7,7 @@ import {
   pgEnum,
   boolean,
   real,
+  integer,
   index,
 } from "drizzle-orm/pg-core";
 
@@ -27,6 +28,7 @@ export const requestStatusEnum = pgEnum("request_status", [
   "awaiting_records",
   "completed",
   "rejected",
+  "withdrawn",
 ]);
 export const requestPriorityEnum = pgEnum("request_priority", [
   "low",
@@ -114,6 +116,8 @@ export const requests = pgTable(
     status: requestStatusEnum("status").notNull().default("new"),
     priority: requestPriorityEnum("priority").notNull().default("normal"),
     assignedStaffId: uuid("assigned_staff_id").references(() => users.id),
+    dueDate: timestamp("due_date", { withTimezone: true }),
+    dueDateExtendedCount: integer("due_date_extended_count").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

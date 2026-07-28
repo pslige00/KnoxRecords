@@ -1,13 +1,16 @@
 "use server";
 
+import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { departments, requests, requestEvents } from "@/lib/db/schema";
 import { requireApprovedCitizen } from "@/lib/auth/dal";
-import { newRequestSchema } from "@/lib/validation";
+import { newRequestSchema, editRequestSchema, withdrawRequestSchema } from "@/lib/validation";
 import { classifyRequest } from "@/lib/ai/classify-request";
 import { generateReferenceNumber } from "@/lib/reference-number";
+
+const RESPONSE_WINDOW_DAYS = 7;
 
 export type RequestFormState = {
   errors?: Record<string, string[]>;
@@ -58,6 +61,8 @@ export async function createRequest(
     console.error("Request classification failed, using defaults", err);
   }
 
+  const dueDate = new Date(Date.now() + RESPONSE_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+
   const [request] = await db
     .insert(requests)
     .values({
@@ -71,6 +76,7 @@ export async function createRequest(
       aiReasoning,
       status: "new",
       priority: aiPriority,
+      dueDate,
     })
     .returning();
 
@@ -83,4 +89,87 @@ export async function createRequest(
 
   revalidatePath("/dashboard");
   redirect(`/dashboard/requests/${request.id}`);
+}
+
+export async function editRequest(
+  _prevState: RequestFormState,
+  formData: FormData,
+): Promise<RequestFormState> {
+  const user = await requireApprovedCitizen();
+
+  const validated = editRequestSchema.safeParse({
+    requestId: formData.get("requestId"),
+    departmentId: formData.get("departmentId"),
+    description: formData.get("description"),
+  });
+  if (!validated.success) {
+    return { errors: validated.error.flatten().fieldErrors as Record<string, string[]> };
+  }
+  const { requestId, departmentId, description } = validated.data;
+
+  const [existing] = await db.select().from(requests).where(eq(requests.id, requestId)).limit(1);
+  if (!existing || existing.userId !== user.id) {
+    return { message: "Request not found." };
+  }
+  if (existing.status !== "new") {
+    return { message: "This request can no longer be edited — staff has already begun reviewing it." };
+  }
+
+  const [dept] = await db.select().from(departments).where(eq(departments.id, departmentId)).limit(1);
+  if (!dept) {
+    return { message: "Select a valid department." };
+  }
+
+  await db
+    .update(requests)
+    .set({ departmentId, description, updatedAt: new Date() })
+    .where(eq(requests.id, requestId));
+
+  await db.insert(requestEvents).values({
+    requestId,
+    authorId: user.id,
+    message: "Request details updated by the requester.",
+    isCustomerVisible: true,
+  });
+
+  revalidatePath(`/dashboard/requests/${requestId}`);
+  redirect(`/dashboard/requests/${requestId}`);
+}
+
+export async function withdrawRequest(
+  _prevState: RequestFormState,
+  formData: FormData,
+): Promise<RequestFormState> {
+  const user = await requireApprovedCitizen();
+
+  const validated = withdrawRequestSchema.safeParse({
+    requestId: formData.get("requestId"),
+  });
+  if (!validated.success) {
+    return { message: "Invalid request." };
+  }
+  const { requestId } = validated.data;
+
+  const [existing] = await db.select().from(requests).where(eq(requests.id, requestId)).limit(1);
+  if (!existing || existing.userId !== user.id) {
+    return { message: "Request not found." };
+  }
+  if (["completed", "rejected", "withdrawn"].includes(existing.status)) {
+    return { message: "This request has already been closed and can't be withdrawn." };
+  }
+
+  await db
+    .update(requests)
+    .set({ status: "withdrawn", updatedAt: new Date() })
+    .where(eq(requests.id, requestId));
+
+  await db.insert(requestEvents).values({
+    requestId,
+    authorId: user.id,
+    message: "Request withdrawn by the requester.",
+    isCustomerVisible: true,
+  });
+
+  revalidatePath(`/dashboard/requests/${requestId}`);
+  redirect(`/dashboard/requests/${requestId}`);
 }

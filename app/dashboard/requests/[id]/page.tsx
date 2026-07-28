@@ -3,11 +3,22 @@ import { and, asc, eq } from "drizzle-orm";
 import { requireApprovedCitizen } from "@/lib/auth/dal";
 import { db } from "@/lib/db";
 import { requests, departments, requestEvents, requestDocuments, users } from "@/lib/db/schema";
+import { getDepartments } from "@/lib/data/departments";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { RequestStatusBadge, PriorityBadge } from "@/components/status-badge";
+import {
+  RequestStatusBadge,
+  PriorityBadge,
+  OverdueBadge,
+  isRequestOverdue,
+} from "@/components/status-badge";
+import { RequestStageTracker } from "@/components/request-stage-tracker";
 import { Timeline } from "@/components/timeline";
 import { Button } from "@/components/ui/button";
-import { FileText, Download } from "lucide-react";
+import { EditRequestForm } from "@/components/dashboard/edit-request-form";
+import { WithdrawRequestButton } from "@/components/dashboard/withdraw-request-button";
+import { FileText, Download, CalendarClock } from "lucide-react";
+
+const TERMINAL_STATUSES = new Set(["completed", "rejected", "withdrawn"]);
 
 export default async function RequestDetailPage({
   params,
@@ -25,6 +36,8 @@ export default async function RequestDetailPage({
       status: requests.status,
       priority: requests.priority,
       createdAt: requests.createdAt,
+      dueDate: requests.dueDate,
+      departmentId: requests.departmentId,
       departmentName: departments.name,
       userId: requests.userId,
     })
@@ -37,25 +50,31 @@ export default async function RequestDetailPage({
     notFound();
   }
 
-  const events = await db
-    .select({
-      id: requestEvents.id,
-      message: requestEvents.message,
-      createdAt: requestEvents.createdAt,
-      authorId: requestEvents.authorId,
-      authorRole: users.role,
-      authorFirstName: users.firstName,
-    })
-    .from(requestEvents)
-    .leftJoin(users, eq(requestEvents.authorId, users.id))
-    .where(and(eq(requestEvents.requestId, id), eq(requestEvents.isCustomerVisible, true)))
-    .orderBy(asc(requestEvents.createdAt));
+  const [events, documents, allDepartments] = await Promise.all([
+    db
+      .select({
+        id: requestEvents.id,
+        message: requestEvents.message,
+        createdAt: requestEvents.createdAt,
+        authorId: requestEvents.authorId,
+        authorRole: users.role,
+        authorFirstName: users.firstName,
+      })
+      .from(requestEvents)
+      .leftJoin(users, eq(requestEvents.authorId, users.id))
+      .where(and(eq(requestEvents.requestId, id), eq(requestEvents.isCustomerVisible, true)))
+      .orderBy(asc(requestEvents.createdAt)),
+    db
+      .select()
+      .from(requestDocuments)
+      .where(eq(requestDocuments.requestId, id))
+      .orderBy(asc(requestDocuments.uploadedAt)),
+    getDepartments(),
+  ]);
 
-  const documents = await db
-    .select()
-    .from(requestDocuments)
-    .where(eq(requestDocuments.requestId, id))
-    .orderBy(asc(requestDocuments.uploadedAt));
+  const overdue = isRequestOverdue(request.dueDate, request.status);
+  const canEdit = request.status === "new";
+  const canWithdraw = !TERMINAL_STATUSES.has(request.status);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -64,6 +83,7 @@ export default async function RequestDetailPage({
           <span className="font-mono text-sm text-muted-foreground">{request.referenceNo}</span>
           <RequestStatusBadge status={request.status} />
           <PriorityBadge priority={request.priority} />
+          {overdue && <OverdueBadge />}
         </div>
         <h1 className="text-2xl font-semibold tracking-tight">{request.departmentName}</h1>
         <p className="text-sm text-muted-foreground">
@@ -71,15 +91,47 @@ export default async function RequestDetailPage({
           {request.createdAt.toLocaleDateString(undefined, {
             dateStyle: "long",
           })}
+          {request.dueDate && (
+            <>
+              {" "}
+              · Response expected by{" "}
+              <span className={overdue ? "font-medium text-orange-700 dark:text-orange-400" : undefined}>
+                {request.dueDate.toLocaleDateString(undefined, { dateStyle: "long" })}
+              </span>
+            </>
+          )}
         </p>
       </div>
 
       <Card>
-        <CardHeader>
+        <CardContent className="py-2">
+          <RequestStageTracker status={request.status} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex-row items-center justify-between space-y-0">
           <CardTitle className="text-base">Request details</CardTitle>
+          {canEdit && !overdue && (
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <CalendarClock className="size-3.5" />
+              Editable until staff begins review
+            </span>
+          )}
         </CardHeader>
-        <CardContent>
-          <p className="whitespace-pre-wrap text-sm">{request.description}</p>
+        <CardContent className="space-y-4">
+          {canEdit ? (
+            <EditRequestForm
+              request={{
+                id: request.id,
+                departmentId: request.departmentId,
+                description: request.description,
+              }}
+              departments={allDepartments}
+            />
+          ) : (
+            <p className="whitespace-pre-wrap text-sm">{request.description}</p>
+          )}
         </CardContent>
       </Card>
 
@@ -133,6 +185,12 @@ export default async function RequestDetailPage({
           />
         </CardContent>
       </Card>
+
+      {canWithdraw && (
+        <div className="flex justify-end">
+          <WithdrawRequestButton requestId={request.id} />
+        </div>
+      )}
     </div>
   );
 }

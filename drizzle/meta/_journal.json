@@ -8,6 +8,13 @@
       "when": 1785213150583,
       "tag": "0000_stormy_dragon_lord",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1785245736612,
+      "tag": "0001_lean_prodigy",
+      "breakpoints": true
     }
   ]
 }

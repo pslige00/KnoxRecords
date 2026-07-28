@@ -1,6 +1,7 @@
 "use server";
 
 import { eq, desc } from "drizzle-orm";
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import {
@@ -15,6 +16,8 @@ import { requireStaff } from "@/lib/auth/dal";
 import {
   accountDecisionSchema,
   requestDecisionSchema,
+  extendDueDateSchema,
+  deleteRequestSchema,
   validateFile,
   RECORD_DOC_MAX_BYTES,
   RECORD_DOC_ALLOWED_TYPES,
@@ -262,4 +265,91 @@ export async function updateRequestStatus(
   revalidatePath(`/staff/requests/${requestId}`);
   revalidatePath(`/dashboard/requests/${requestId}`);
   return { message: "Status updated and customer notified." };
+}
+
+export async function extendDueDate(
+  _prevState: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const staff = await requireStaff();
+
+  const validated = extendDueDateSchema.safeParse({
+    requestId: formData.get("requestId"),
+    newDueDate: formData.get("newDueDate"),
+    reason: formData.get("reason"),
+  });
+  if (!validated.success) {
+    return { message: validated.error.issues[0]?.message ?? "Invalid request." };
+  }
+  const { requestId, newDueDate, reason } = validated.data;
+
+  const [existing] = await db.select().from(requests).where(eq(requests.id, requestId)).limit(1);
+  if (!existing) {
+    return { message: "Request not found." };
+  }
+
+  const [citizen] = await db.select().from(users).where(eq(users.id, existing.userId)).limit(1);
+  if (!citizen) {
+    return { message: "Requester account not found." };
+  }
+
+  const parsedDueDate = new Date(newDueDate);
+
+  await db
+    .update(requests)
+    .set({
+      dueDate: parsedDueDate,
+      dueDateExtendedCount: existing.dueDateExtendedCount + 1,
+      updatedAt: new Date(),
+    })
+    .where(eq(requests.id, requestId));
+
+  const formattedDate = parsedDueDate.toLocaleDateString(undefined, { dateStyle: "long" });
+  const eventMessage = `Response due date extended to ${formattedDate} by ${staff.firstName} ${staff.lastName}. Reason: ${reason}`;
+
+  await db.insert(requestEvents).values({
+    requestId,
+    authorId: staff.id,
+    message: eventMessage,
+    isCustomerVisible: true,
+  });
+
+  await sendRequestStatusEmail({
+    to: citizen.email,
+    firstName: citizen.firstName,
+    referenceNo: existing.referenceNo,
+    statusLabel: REQUEST_STATUS_LABELS[existing.status],
+    message: `Your expected response date has been extended to ${formattedDate}.\n\nReason: ${reason}`,
+    requestId,
+  }).catch(() => {});
+
+  revalidatePath(`/staff/requests/${requestId}`);
+  revalidatePath(`/dashboard/requests/${requestId}`);
+  return { message: "Due date extended and requester notified." };
+}
+
+export async function deleteRequest(
+  _prevState: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  await requireStaff();
+
+  const validated = deleteRequestSchema.safeParse({
+    requestId: formData.get("requestId"),
+  });
+  if (!validated.success) {
+    return { message: "Invalid request." };
+  }
+  const { requestId } = validated.data;
+
+  const [existing] = await db.select().from(requests).where(eq(requests.id, requestId)).limit(1);
+  if (!existing) {
+    return { message: "Request not found." };
+  }
+
+  // Cascades to request_documents and request_events via FK onDelete.
+  await db.delete(requests).where(eq(requests.id, requestId));
+
+  revalidatePath("/staff/requests");
+  redirect("/staff/requests");
 }

@@ -5,7 +5,12 @@ import { db } from "@/lib/db";
 import { requests, departments } from "@/lib/db/schema";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { RequestStatusBadge, PriorityBadge } from "@/components/status-badge";
+import {
+  RequestStatusBadge,
+  PriorityBadge,
+  OverdueBadge,
+  isRequestOverdue,
+} from "@/components/status-badge";
 import { FileSearch, Plus } from "lucide-react";
 
 export default async function DashboardPage() {
@@ -20,6 +25,7 @@ export default async function DashboardPage() {
       status: requests.status,
       priority: requests.priority,
       createdAt: requests.createdAt,
+      dueDate: requests.dueDate,
       departmentName: departments.name,
     })
     .from(requests)
@@ -77,9 +83,10 @@ export default async function DashboardPage() {
                     </div>
                     <p className="truncate font-medium">{r.aiSummary || r.description}</p>
                   </div>
-                  <div className="flex shrink-0 items-center gap-2">
+                  <div className="flex shrink-0 flex-wrap items-center gap-2">
                     <PriorityBadge priority={r.priority} />
                     <RequestStatusBadge status={r.status} />
+                    {isRequestOverdue(r.dueDate, r.status) && <OverdueBadge />}
                   </div>
                 </CardContent>
               </Card>

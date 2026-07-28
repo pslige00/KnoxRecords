@@ -4,7 +4,26 @@ export const REQUEST_STATUS_LABELS: Record<string, string> = {
   awaiting_records: "Awaiting Records",
   completed: "Completed",
   rejected: "Rejected",
+  withdrawn: "Withdrawn",
 };
+
+/** Ordered "happy path" stages shown in the request stage tracker. */
+export const REQUEST_LIFECYCLE_STAGES = [
+  "new",
+  "in_review",
+  "awaiting_records",
+  "completed",
+] as const;
+
+export const REQUEST_LIFECYCLE_STAGE_LABELS: Record<string, string> = {
+  new: "Submitted",
+  in_review: "In Review",
+  awaiting_records: "Awaiting Records",
+  completed: "Completed",
+};
+
+/** Statuses that end the lifecycle outside the normal stage progression. */
+export const TERMINAL_REQUEST_STATUSES = ["rejected", "withdrawn"] as const;
 
 export const PRIORITY_LABELS: Record<string, string> = {
   low: "Low",
