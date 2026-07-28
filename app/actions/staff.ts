@@ -11,6 +11,7 @@ import {
   requestDocuments,
   requestEvents,
   departments,
+  appSettings,
 } from "@/lib/db/schema";
 import { requireStaff } from "@/lib/auth/dal";
 import {
@@ -20,6 +21,7 @@ import {
   deleteRequestSchema,
   updateDepartmentSchema,
   changeUserRoleSchema,
+  updateSettingsSchema,
   validateFile,
   RECORD_DOC_MAX_BYTES,
   RECORD_DOC_ALLOWED_TYPES,
@@ -404,6 +406,37 @@ export async function updateDepartment(
 
   revalidatePath("/staff/departments");
   return { message: "Department updated." };
+}
+
+export async function updateSettings(
+  _prevState: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const staff = await requireStaff();
+
+  const validated = updateSettingsSchema.safeParse({
+    idAutoApproveThresholdPercent: formData.get("idAutoApproveThresholdPercent"),
+  });
+  if (!validated.success) {
+    return { message: validated.error.issues[0]?.message ?? "Invalid input." };
+  }
+  const threshold = validated.data.idAutoApproveThresholdPercent / 100;
+
+  const [existing] = await db.select({ id: appSettings.id }).from(appSettings).limit(1);
+  if (existing) {
+    await db
+      .update(appSettings)
+      .set({ idAutoApproveThreshold: threshold, updatedBy: staff.id, updatedAt: new Date() })
+      .where(eq(appSettings.id, existing.id));
+  } else {
+    await db.insert(appSettings).values({
+      idAutoApproveThreshold: threshold,
+      updatedBy: staff.id,
+    });
+  }
+
+  revalidatePath("/staff/settings");
+  return { message: "Settings updated." };
 }
 
 export async function changeUserRole(

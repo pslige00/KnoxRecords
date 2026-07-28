@@ -3,6 +3,7 @@
 import { useActionState, useRef, useState } from "react";
 import Link from "next/link";
 import { signup, type AuthFormState } from "@/app/actions/auth";
+import { lookupAddress } from "@/app/actions/geocode";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +16,7 @@ import {
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { US_STATES } from "@/lib/us-states";
-import { Loader2, ShieldCheck, Upload } from "lucide-react";
+import { CheckCircle2, Loader2, ShieldCheck, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 function Field({
@@ -113,6 +114,34 @@ export function SignupForm() {
   );
   const [fileError, setFileError] = useState<string | null>(null);
 
+  const address1Ref = useRef<HTMLInputElement>(null);
+  const cityRef = useRef<HTMLInputElement>(null);
+  const zipRef = useRef<HTMLInputElement>(null);
+  const [stateValue, setStateValue] = useState<string | null>(null);
+  const [addressStatus, setAddressStatus] = useState<"idle" | "loading" | "matched" | "no-match">(
+    "idle",
+  );
+
+  async function handleAddressBlur() {
+    const query = address1Ref.current?.value ?? "";
+    // Only attempt a lookup while city/state/zip are still empty, so we
+    // never clobber values the user already filled in (or corrected).
+    if (cityRef.current?.value || stateValue || zipRef.current?.value) return;
+    if (query.trim().length < 8) return;
+
+    setAddressStatus("loading");
+    const result = await lookupAddress(query);
+    if (!result) {
+      setAddressStatus("no-match");
+      return;
+    }
+    if (address1Ref.current) address1Ref.current.value = result.street;
+    if (cityRef.current) cityRef.current.value = result.city;
+    if (zipRef.current) zipRef.current.value = result.zip;
+    setStateValue(result.state);
+    setAddressStatus("matched");
+  }
+
   return (
     <form
       action={action}
@@ -179,20 +208,51 @@ export function SignupForm() {
       <section className="space-y-4">
         <h3 className="text-sm font-semibold text-muted-foreground">Address</h3>
         <Field id="address1" label="Address" error={state?.errors?.address1?.[0]}>
-          <Input id="address1" name="address1" required autoComplete="address-line1" />
+          <div className="relative">
+            <Input
+              ref={address1Ref}
+              id="address1"
+              name="address1"
+              required
+              autoComplete="address-line1"
+              placeholder="Start typing your full address..."
+              onBlur={handleAddressBlur}
+              onChange={() => addressStatus !== "idle" && setAddressStatus("idle")}
+              className="pr-8"
+            />
+            {addressStatus === "loading" && (
+              <Loader2 className="absolute right-2.5 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+            )}
+            {addressStatus === "matched" && (
+              <CheckCircle2 className="absolute right-2.5 top-1/2 size-4 -translate-y-1/2 text-emerald-600 dark:text-emerald-400" />
+            )}
+          </div>
+          {addressStatus === "matched" && (
+            <p className="text-xs text-muted-foreground">
+              Address verified — city, state, and ZIP filled in below.
+            </p>
+          )}
+          {addressStatus === "no-match" && (
+            <p className="text-xs text-muted-foreground">
+              Couldn&apos;t verify that address automatically — go ahead and fill in city, state,
+              and ZIP below.
+            </p>
+          )}
         </Field>
         <Field id="address2" label="Address line 2 (optional)">
           <Input id="address2" name="address2" autoComplete="address-line2" />
         </Field>
         <div className="grid gap-4 sm:grid-cols-3">
           <Field id="city" label="City" error={state?.errors?.city?.[0]}>
-            <Input id="city" name="city" required autoComplete="address-level2" />
+            <Input ref={cityRef} id="city" name="city" required autoComplete="address-level2" />
           </Field>
           <Field id="state" label="State" error={state?.errors?.state?.[0]}>
             <Select
               name="state"
               items={US_STATES.map((s) => ({ value: s.code, label: s.name }))}
               required
+              value={stateValue}
+              onValueChange={(value) => setStateValue(value as string)}
             >
               <SelectTrigger id="state" className="w-full">
                 <SelectValue placeholder="Select" />
@@ -207,7 +267,7 @@ export function SignupForm() {
             </Select>
           </Field>
           <Field id="zip" label="ZIP code" error={state?.errors?.zip?.[0]}>
-            <Input id="zip" name="zip" required autoComplete="postal-code" />
+            <Input ref={zipRef} id="zip" name="zip" required autoComplete="postal-code" />
           </Field>
         </div>
         <Field id="companyName" label="Company name (if applicable)">

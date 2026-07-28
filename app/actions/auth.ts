@@ -17,14 +17,13 @@ import {
 } from "@/lib/validation";
 import { uploadIdImage } from "@/lib/blob";
 import { verifyDriversLicense } from "@/lib/ai/id-verify";
-import { sendAccountApprovedEmail } from "@/lib/email";
+import { sendAccountApprovedEmail, sendSignupReceivedEmail } from "@/lib/email";
+import { getIdAutoApproveThreshold } from "@/lib/data/settings";
 
 export type AuthFormState = {
   errors?: Record<string, string[]>;
   message?: string;
 } | undefined;
-
-const AUTO_APPROVE_CONFIDENCE = 0.85;
 
 export async function signup(
   _prevState: AuthFormState,
@@ -104,6 +103,8 @@ export async function signup(
     })
     .returning();
 
+  await sendSignupReceivedEmail(user.email, user.firstName).catch(() => {});
+
   // Best-effort AI verification. If it fails, the account stays pending
   // for manual staff review rather than blocking signup entirely.
   let autoApproved = false;
@@ -130,7 +131,8 @@ export async function signup(
       aiReasoning: result.reasoning,
     });
 
-    if (result.verdict === "approved" && result.confidence >= AUTO_APPROVE_CONFIDENCE) {
+    const autoApproveThreshold = await getIdAutoApproveThreshold();
+    if (result.verdict === "approved" && result.confidence >= autoApproveThreshold) {
       await db
         .update(users)
         .set({ accountStatus: "approved" })

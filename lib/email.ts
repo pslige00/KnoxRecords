@@ -29,6 +29,20 @@ function wrapper(title: string, bodyHtml: string) {
 </html>`;
 }
 
+export async function sendSignupReceivedEmail(to: string, firstName: string) {
+  await resend.emails.send({
+    from: FROM,
+    to,
+    subject: "We've received your KnoxRecords account request",
+    html: wrapper(
+      "Account request received",
+      `<p style="color:#334155; line-height:1.6;">Hi ${firstName},</p>
+       <p style="color:#334155; line-height:1.6;">Thanks for signing up for KnoxRecords. We've received your account request and the driver's license photo you attached.</p>
+       <p style="color:#334155; line-height:1.6;">Most accounts are verified within moments; a few need a staff member to take a closer look. Either way, we'll email you as soon as a decision is made.</p>`,
+    ),
+  });
+}
+
 export async function sendAccountApprovedEmail(to: string, firstName: string) {
   await resend.emails.send({
     from: FROM,

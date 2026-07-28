@@ -155,6 +155,13 @@ export const requestDocuments = pgTable(
   (table) => [index("request_documents_request_idx").on(table.requestId)],
 );
 
+export const appSettings = pgTable("app_settings", {
+  id: varchar("id", { length: 32 }).primaryKey().default("singleton"),
+  idAutoApproveThreshold: real("id_auto_approve_threshold").notNull().default(0.85),
+  updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const requestEvents = pgTable(
   "request_events",
   {

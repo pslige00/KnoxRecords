@@ -9,6 +9,7 @@ import {
   requests,
   requestDocuments,
   requestEvents,
+  appSettings,
 } from "./schema";
 import { generateReferenceNumber } from "@/lib/reference-number";
 
@@ -239,6 +240,11 @@ async function main() {
   await db.delete(idVerifications);
   await db.delete(users);
   await db.delete(departments);
+
+  // Not wiped above: app_settings holds staff-configured values (e.g. the AI
+  // auto-approve threshold) that should survive a reseed. Only insert a
+  // default row if one doesn't already exist.
+  await db.insert(appSettings).values({}).onConflictDoNothing({ target: appSettings.id });
 
   console.log("Seeding departments...");
   const insertedDepartments = await db.insert(departments).values(DEPARTMENTS).returning();

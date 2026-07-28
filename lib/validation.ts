@@ -92,6 +92,13 @@ export const updateDepartmentSchema = z.object({
   contactEmail: z.string().trim().email({ message: "Enter a valid email address." }),
 });
 
+export const updateSettingsSchema = z.object({
+  idAutoApproveThresholdPercent: z.coerce
+    .number({ message: "Enter a number between 0 and 100." })
+    .min(0, { message: "Must be at least 0." })
+    .max(100, { message: "Must be at most 100." }),
+});
+
 export const changeUserRoleSchema = z.object({
   userId: z.string().uuid(),
   role: z.enum(["citizen", "staff"]),
