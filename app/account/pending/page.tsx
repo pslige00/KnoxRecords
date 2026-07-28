@@ -33,12 +33,14 @@ export default async function AccountPendingPage() {
           <SignOutButton />
         </div>
       </header>
-      <main className="flex flex-1 items-center justify-center px-4 pb-16">
+      <main id="main-content" className="flex flex-1 items-center justify-center px-4 pb-16">
         <Card className="w-full max-w-lg">
           <CardHeader>
             <div
               className={`mb-2 flex size-10 items-center justify-center rounded-full ${
-                isRejected ? "bg-destructive/10 text-destructive" : "bg-amber-500/10 text-amber-600"
+                isRejected
+                  ? "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300"
+                  : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
               }`}
             >
               {isRejected ? <ShieldAlert className="size-5" /> : <Clock3 className="size-5" />}

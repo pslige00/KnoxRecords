@@ -58,11 +58,12 @@ export default async function StaffRequestsPage({
         <p className="text-sm text-muted-foreground">{rows.length} results</p>
       </div>
 
-      <form className="flex flex-wrap gap-3" method="get">
+      <form className="flex flex-wrap items-center gap-3" method="get">
         <select
           name="department"
           defaultValue={params.department ?? ""}
-          className="h-9 rounded-md border bg-background px-3 text-sm"
+          aria-label="Filter by department"
+          className="h-9 rounded-lg border border-input bg-transparent px-3 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
         >
           <option value="">All departments</option>
           {allDepartments.map((d) => (
@@ -74,7 +75,8 @@ export default async function StaffRequestsPage({
         <select
           name="status"
           defaultValue={params.status ?? ""}
-          className="h-9 rounded-md border bg-background px-3 text-sm"
+          aria-label="Filter by status"
+          className="h-9 rounded-lg border border-input bg-transparent px-3 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
         >
           <option value="">All statuses</option>
           {Object.entries(REQUEST_STATUS_LABELS).map(([value, label]) => (
@@ -86,7 +88,8 @@ export default async function StaffRequestsPage({
         <select
           name="priority"
           defaultValue={params.priority ?? ""}
-          className="h-9 rounded-md border bg-background px-3 text-sm"
+          aria-label="Filter by priority"
+          className="h-9 rounded-lg border border-input bg-transparent px-3 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
         >
           <option value="">All priorities</option>
           {Object.entries(PRIORITY_LABELS).map(([value, label]) => (
@@ -97,14 +100,14 @@ export default async function StaffRequestsPage({
         </select>
         <button
           type="submit"
-          className="h-9 rounded-md border bg-secondary px-4 text-sm font-medium text-secondary-foreground"
+          className="h-9 rounded-lg border border-input bg-secondary px-4 text-sm font-medium text-secondary-foreground transition-colors hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           Filter
         </button>
         {(params.department || params.status || params.priority) && (
           <Link
             href="/staff/requests"
-            className="flex h-9 items-center px-2 text-sm text-muted-foreground underline underline-offset-4"
+            className="flex h-9 items-center px-2 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
           >
             Clear
           </Link>

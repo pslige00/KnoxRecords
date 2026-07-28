@@ -8,9 +8,11 @@ import { AccountDecisionForm } from "@/components/staff/account-decision-form";
 import { ShieldCheck, UserRound } from "lucide-react";
 
 const VERDICT_STYLES: Record<string, string> = {
-  approved: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
-  rejected: "bg-destructive/10 text-destructive border-destructive/20",
-  needs_review: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
+  approved:
+    "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800",
+  rejected: "bg-red-100 text-red-800 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800",
+  needs_review:
+    "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800",
 };
 
 export default async function StaffAccountsPage() {

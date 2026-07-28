@@ -21,7 +21,7 @@ export default async function DashboardLayout({
         roleLabel="Citizen"
         homeHref="/dashboard"
       />
-      <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">{children}</main>
+      <main id="main-content" className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">{children}</main>
     </div>
   );
 }

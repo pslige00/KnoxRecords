@@ -40,7 +40,7 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="flex-1">
+      <main id="main-content" className="flex-1">
         <section className="mx-auto max-w-4xl px-6 py-24 text-center">
           <span className="mb-6 inline-flex items-center gap-1.5 rounded-full border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
             <FileSearch className="size-3.5" />
