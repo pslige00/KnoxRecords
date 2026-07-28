@@ -9,6 +9,7 @@ import { requireApprovedCitizen } from "@/lib/auth/dal";
 import { newRequestSchema, editRequestSchema, withdrawRequestSchema } from "@/lib/validation";
 import { classifyRequest } from "@/lib/ai/classify-request";
 import { generateReferenceNumber } from "@/lib/reference-number";
+import { sendDepartmentRoutingEmail } from "@/lib/email";
 
 const RESPONSE_WINDOW_DAYS = 7;
 
@@ -86,6 +87,16 @@ export async function createRequest(
     message: "Request submitted.",
     isCustomerVisible: true,
   });
+
+  await sendDepartmentRoutingEmail({
+    to: selected.contactEmail,
+    departmentName: selected.name,
+    referenceNo: request.referenceNo,
+    requesterName: `${user.firstName} ${user.lastName}`,
+    description,
+    priority: aiPriority,
+    requestId: request.id,
+  }).catch((err) => console.error("Department routing email failed", err));
 
   revalidatePath("/dashboard");
   redirect(`/dashboard/requests/${request.id}`);

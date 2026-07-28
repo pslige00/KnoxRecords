@@ -9,6 +9,7 @@ import {
   real,
   integer,
   index,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
 export const userRoleEnum = pgEnum("user_role", ["citizen", "staff"]);
@@ -53,6 +54,8 @@ export const users = pgTable(
     zip: varchar("zip", { length: 10 }).notNull(),
     companyName: varchar("company_name", { length: 255 }),
     role: userRoleEnum("role").notNull().default("citizen"),
+    roleChangedBy: uuid("role_changed_by").references((): AnyPgColumn => users.id),
+    roleChangedAt: timestamp("role_changed_at", { withTimezone: true }),
     accountStatus: accountStatusEnum("account_status")
       .notNull()
       .default("pending"),

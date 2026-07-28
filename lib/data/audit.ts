@@ -9,7 +9,7 @@ export type AuditEntry = {
   createdAt: Date;
   actorId: string;
   actorName: string;
-  category: "request" | "account";
+  category: "request" | "account" | "role";
   description: string;
   linkHref: string | null;
 };
@@ -74,6 +74,31 @@ export async function getStaffAuditLog({
     .orderBy(desc(idVerifications.reviewedAt))
     .limit(200);
 
+  const changer = alias(users, "changer");
+  const changedUser = alias(users, "changed_user");
+
+  const roleActionRows = await db
+    .select({
+      id: changedUser.id,
+      roleChangedAt: changedUser.roleChangedAt,
+      changerId: changer.id,
+      changerFirstName: changer.firstName,
+      changerLastName: changer.lastName,
+      changedFirstName: changedUser.firstName,
+      changedLastName: changedUser.lastName,
+      changedRole: changedUser.role,
+    })
+    .from(changedUser)
+    .innerJoin(changer, eq(changedUser.roleChangedBy, changer.id))
+    .where(
+      and(
+        isNotNull(changedUser.roleChangedBy),
+        actorId ? eq(changer.id, actorId) : undefined,
+      ),
+    )
+    .orderBy(desc(changedUser.roleChangedAt))
+    .limit(200);
+
   const requestEntries: AuditEntry[] = requestActionRows.map((r) => ({
     id: r.id,
     createdAt: r.createdAt,
@@ -98,7 +123,19 @@ export async function getStaffAuditLog({
       linkHref: null,
     }));
 
-  return [...requestEntries, ...accountEntries].sort(
+  const roleEntries: AuditEntry[] = roleActionRows
+    .filter((r) => r.roleChangedAt)
+    .map((r) => ({
+      id: r.id,
+      createdAt: r.roleChangedAt as Date,
+      actorId: r.changerId,
+      actorName: `${r.changerFirstName} ${r.changerLastName}`,
+      category: "role",
+      description: `${r.changerFirstName} ${r.changerLastName} changed ${r.changedFirstName} ${r.changedLastName}'s role to ${r.changedRole}.`,
+      linkHref: "/staff/users",
+    }));
+
+  return [...requestEntries, ...accountEntries, ...roleEntries].sort(
     (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
   );
 }

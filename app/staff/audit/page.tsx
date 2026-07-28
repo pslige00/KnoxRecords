@@ -2,18 +2,21 @@ import Link from "next/link";
 import { getStaffAuditLog, getStaffMembers } from "@/lib/data/audit";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { FileText, ShieldCheck, ListChecks } from "lucide-react";
+import { FileText, ShieldCheck, ShieldEllipsis, ListChecks } from "lucide-react";
 
 const CATEGORY_STYLES: Record<string, string> = {
   request:
     "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800",
   account:
     "bg-violet-100 text-violet-800 border-violet-200 dark:bg-violet-950 dark:text-violet-300 dark:border-violet-800",
+  role:
+    "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800",
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
   request: "Request",
   account: "Account",
+  role: "Role",
 };
 
 export default async function StaffAuditPage({
@@ -81,6 +84,8 @@ export default async function StaffAuditPage({
                 <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-muted">
                   {entry.category === "account" ? (
                     <ShieldCheck className="size-3.5 text-muted-foreground" />
+                  ) : entry.category === "role" ? (
+                    <ShieldEllipsis className="size-3.5 text-muted-foreground" />
                   ) : (
                     <FileText className="size-3.5 text-muted-foreground" />
                   )}

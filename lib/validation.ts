@@ -86,6 +86,17 @@ export const withdrawRequestSchema = z.object({
   requestId: z.string().uuid(),
 });
 
+export const updateDepartmentSchema = z.object({
+  departmentId: z.string().uuid(),
+  name: z.string().trim().min(1, { message: "Name is required." }).max(160),
+  contactEmail: z.string().trim().email({ message: "Enter a valid email address." }),
+});
+
+export const changeUserRoleSchema = z.object({
+  userId: z.string().uuid(),
+  role: z.enum(["citizen", "staff"]),
+});
+
 export const deleteRequestSchema = z.object({
   requestId: z.string().uuid(),
 });

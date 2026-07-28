@@ -4,6 +4,8 @@ import { AppHeader } from "@/components/app-header";
 const NAV_ITEMS = [
   { href: "/staff/requests", label: "Requests" },
   { href: "/staff/accounts", label: "Account Approvals" },
+  { href: "/staff/departments", label: "Departments" },
+  { href: "/staff/users", label: "Users" },
   { href: "/staff/audit", label: "Audit Log" },
 ];
 

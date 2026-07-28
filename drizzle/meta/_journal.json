@@ -15,6 +15,13 @@
       "when": 1785245736612,
       "tag": "0001_lean_prodigy",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785252679486,
+      "tag": "0002_wise_praxagora",
+      "breakpoints": true
     }
   ]
 }

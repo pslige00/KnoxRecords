@@ -57,6 +57,39 @@ export async function sendAccountRejectedEmail(to: string, firstName: string, re
   });
 }
 
+export async function sendDepartmentRoutingEmail({
+  to,
+  departmentName,
+  referenceNo,
+  requesterName,
+  description,
+  priority,
+  requestId,
+}: {
+  to: string;
+  departmentName: string;
+  referenceNo: string;
+  requesterName: string;
+  description: string;
+  priority: string;
+  requestId: string;
+}) {
+  await resend.emails.send({
+    from: FROM,
+    to,
+    subject: `New records request routed to ${departmentName}: ${referenceNo}`,
+    html: wrapper(
+      `New request for ${departmentName}`,
+      `<p style="color:#334155; line-height:1.6;">A public records request has been routed to your department.</p>
+       <p style="color:#334155; line-height:1.6;"><strong>Reference:</strong> ${referenceNo}<br/>
+       <strong>Requester:</strong> ${requesterName}<br/>
+       <strong>Priority:</strong> ${priority}</p>
+       <p style="color:#334155; line-height:1.6; white-space:pre-wrap;">${description}</p>
+       <p><a href="${APP_URL}/staff/requests/${requestId}" style="display:inline-block; background:#1e293b; color:#fff; padding:10px 20px; border-radius:8px; text-decoration:none;">View in KnoxRecords</a></p>`,
+    ),
+  });
+}
+
 export async function sendRequestStatusEmail({
   to,
   firstName,

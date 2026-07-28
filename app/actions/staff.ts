@@ -18,6 +18,8 @@ import {
   requestDecisionSchema,
   extendDueDateSchema,
   deleteRequestSchema,
+  updateDepartmentSchema,
+  changeUserRoleSchema,
   validateFile,
   RECORD_DOC_MAX_BYTES,
   RECORD_DOC_ALLOWED_TYPES,
@@ -27,6 +29,7 @@ import {
   sendAccountApprovedEmail,
   sendAccountRejectedEmail,
   sendRequestStatusEmail,
+  sendDepartmentRoutingEmail,
 } from "@/lib/email";
 import { REQUEST_STATUS_LABELS } from "@/lib/status-labels";
 
@@ -125,6 +128,21 @@ export async function assignRequest(
     message: `Routed to ${dept.name} with ${priority} priority by ${staff.firstName} ${staff.lastName}.`,
     isCustomerVisible: false,
   });
+
+  if (departmentId !== existing.departmentId) {
+    const [requester] = await db.select().from(users).where(eq(users.id, existing.userId)).limit(1);
+    if (requester) {
+      await sendDepartmentRoutingEmail({
+        to: dept.contactEmail,
+        departmentName: dept.name,
+        referenceNo: existing.referenceNo,
+        requesterName: `${requester.firstName} ${requester.lastName}`,
+        description: existing.description,
+        priority,
+        requestId,
+      }).catch((err) => console.error("Department routing email failed", err));
+    }
+  }
 
   revalidatePath(`/staff/requests/${requestId}`);
   return { message: "Routing updated." };
@@ -352,4 +370,82 @@ export async function deleteRequest(
 
   revalidatePath("/staff/requests");
   redirect("/staff/requests");
+}
+
+export async function updateDepartment(
+  _prevState: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  await requireStaff();
+
+  const validated = updateDepartmentSchema.safeParse({
+    departmentId: formData.get("departmentId"),
+    name: formData.get("name"),
+    contactEmail: formData.get("contactEmail"),
+  });
+  if (!validated.success) {
+    return { message: validated.error.issues[0]?.message ?? "Invalid input." };
+  }
+  const { departmentId, name, contactEmail } = validated.data;
+
+  const [existing] = await db
+    .select()
+    .from(departments)
+    .where(eq(departments.id, departmentId))
+    .limit(1);
+  if (!existing) {
+    return { message: "Department not found." };
+  }
+
+  await db
+    .update(departments)
+    .set({ name, contactEmail })
+    .where(eq(departments.id, departmentId));
+
+  revalidatePath("/staff/departments");
+  return { message: "Department updated." };
+}
+
+export async function changeUserRole(
+  _prevState: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const staff = await requireStaff();
+
+  const validated = changeUserRoleSchema.safeParse({
+    userId: formData.get("userId"),
+    role: formData.get("role"),
+  });
+  if (!validated.success) {
+    return { message: "Invalid request." };
+  }
+  const { userId, role } = validated.data;
+
+  if (userId === staff.id) {
+    return { message: "You can't change your own role." };
+  }
+
+  const [target] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  if (!target) {
+    return { message: "Account not found." };
+  }
+
+  if (target.role === role) {
+    return { message: `Account is already ${role}.` };
+  }
+
+  if (target.role === "staff" && role === "citizen") {
+    const staffMembers = await db.select({ id: users.id }).from(users).where(eq(users.role, "staff"));
+    if (staffMembers.length <= 1) {
+      return { message: "Can't remove the last remaining staff account." };
+    }
+  }
+
+  await db
+    .update(users)
+    .set({ role, roleChangedBy: staff.id, roleChangedAt: new Date() })
+    .where(eq(users.id, userId));
+
+  revalidatePath("/staff/users");
+  return { message: `${target.firstName} ${target.lastName} is now ${role === "staff" ? "a staff member" : "a citizen"}.` };
 }
