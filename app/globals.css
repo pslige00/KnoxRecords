@@ -57,6 +57,11 @@
  * grayscale UI.
  */
 :root {
+  /* Tells the browser to render native form controls (select popups,
+     scrollbars, etc.) using its light UI instead of guessing from our
+     custom colors — without this, dark-mode text can end up on a
+     browser-default light dropdown background and become unreadable. */
+  color-scheme: light;
   --background: oklch(1 0 0);
   --foreground: oklch(0.18 0.014 258);
   --card: oklch(0.94 0.02 258);
@@ -93,6 +98,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   --background: oklch(0.16 0.012 258);
   --foreground: oklch(0.97 0.004 258);
   --card: oklch(0.27 0.022 258);

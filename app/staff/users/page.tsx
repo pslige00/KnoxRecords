@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, ilike, or } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { getCurrentUser } from "@/lib/auth/dal";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { AccountStatusBadge } from "@/components/status-badge";
 import {
   Table,
@@ -14,8 +15,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { FilterSelect } from "@/components/staff/filter-select";
 import { ChangeRoleButton } from "@/components/staff/change-role-button";
-import { Users2 } from "lucide-react";
+import { Search, Users2 } from "lucide-react";
 
 const ROLE_STYLES: Record<string, string> = {
   staff:
@@ -26,16 +28,33 @@ const ROLE_STYLES: Record<string, string> = {
 export default async function StaffUsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ role?: string }>;
+  searchParams: Promise<{ role?: string; q?: string }>;
 }) {
   const params = await searchParams;
   const currentUser = await getCurrentUser();
+  const q = params.q?.trim();
+  const roleFilter = params.role && params.role !== "all" ? params.role : undefined;
+
+  const conditions = [
+    roleFilter ? eq(users.role, roleFilter as "citizen" | "staff") : undefined,
+    q
+      ? or(
+          ilike(users.firstName, `%${q}%`),
+          ilike(users.lastName, `%${q}%`),
+          ilike(users.email, `%${q}%`),
+          ilike(users.phone, `%${q}%`),
+          ilike(users.city, `%${q}%`),
+        )
+      : undefined,
+  ].filter(Boolean);
 
   const rows = await db
     .select()
     .from(users)
-    .where(params.role ? eq(users.role, params.role as "citizen" | "staff") : undefined)
+    .where(conditions.length ? and(...conditions) : undefined)
     .orderBy(desc(users.createdAt));
+
+  const hasFilters = roleFilter || q;
 
   return (
     <div className="space-y-6">
@@ -48,23 +67,34 @@ export default async function StaffUsersPage({
       </div>
 
       <form className="flex flex-wrap items-center gap-3" method="get">
-        <select
+        <div className="relative">
+          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
+            name="q"
+            defaultValue={q ?? ""}
+            placeholder="Search name, email, phone, city…"
+            aria-label="Search users"
+            className="h-9 w-72 pl-8"
+          />
+        </div>
+        <FilterSelect
           name="role"
-          defaultValue={params.role ?? ""}
-          aria-label="Filter by role"
-          className="h-9 rounded-lg border border-input bg-transparent px-3 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
-        >
-          <option value="">All roles</option>
-          <option value="staff">Staff</option>
-          <option value="citizen">Citizen</option>
-        </select>
+          defaultValue={params.role}
+          ariaLabel="Filter by role"
+          options={[
+            { value: "all", label: "All roles" },
+            { value: "staff", label: "Staff" },
+            { value: "citizen", label: "Citizen" },
+          ]}
+        />
         <button
           type="submit"
-          className="h-9 rounded-lg border border-input bg-secondary px-4 text-sm font-medium text-secondary-foreground transition-colors hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="h-9 cursor-pointer rounded-lg border border-input bg-secondary px-4 text-sm font-medium text-secondary-foreground transition-colors hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           Filter
         </button>
-        {params.role && (
+        {hasFilters && (
           <Link
             href="/staff/users"
             className="flex h-9 items-center px-2 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"

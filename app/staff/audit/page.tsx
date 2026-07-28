@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getStaffAuditLog, getStaffMembers } from "@/lib/data/audit";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { FilterSelect } from "@/components/staff/filter-select";
 import { FileText, ShieldCheck, ShieldEllipsis, ListChecks } from "lucide-react";
 
 const CATEGORY_STYLES: Record<string, string> = {
@@ -25,8 +26,9 @@ export default async function StaffAuditPage({
   searchParams: Promise<{ actor?: string }>;
 }) {
   const params = await searchParams;
+  const actorFilter = params.actor && params.actor !== "all" ? params.actor : undefined;
   const [entries, staffMembers] = await Promise.all([
-    getStaffAuditLog({ actorId: params.actor || undefined }),
+    getStaffAuditLog({ actorId: actorFilter }),
     getStaffMembers(),
   ]);
 
@@ -40,26 +42,22 @@ export default async function StaffAuditPage({
       </div>
 
       <form className="flex flex-wrap items-center gap-3" method="get">
-        <select
+        <FilterSelect
           name="actor"
-          defaultValue={params.actor ?? ""}
-          aria-label="Filter by staff member"
-          className="h-9 rounded-lg border border-input bg-transparent px-3 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
-        >
-          <option value="">All staff</option>
-          {staffMembers.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.firstName} {s.lastName}
-            </option>
-          ))}
-        </select>
+          defaultValue={params.actor}
+          ariaLabel="Filter by staff member"
+          options={[
+            { value: "all", label: "All staff" },
+            ...staffMembers.map((s) => ({ value: s.id, label: `${s.firstName} ${s.lastName}` })),
+          ]}
+        />
         <button
           type="submit"
-          className="h-9 rounded-lg border border-input bg-secondary px-4 text-sm font-medium text-secondary-foreground transition-colors hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="h-9 cursor-pointer rounded-lg border border-input bg-secondary px-4 text-sm font-medium text-secondary-foreground transition-colors hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           Filter
         </button>
-        {params.actor && (
+        {actorFilter && (
           <Link
             href="/staff/audit"
             className="flex h-9 items-center px-2 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"

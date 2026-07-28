@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, ilike, or } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { requests, departments, users } from "@/lib/db/schema";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,6 +17,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
+import { FilterSelect } from "@/components/staff/filter-select";
 import { getDepartments } from "@/lib/data/departments";
 import {
   REQUEST_STATUS_LABELS,
@@ -24,7 +26,7 @@ import {
   REQUEST_LIFECYCLE_STAGES,
   REQUEST_LIFECYCLE_STAGE_LABELS,
 } from "@/lib/status-labels";
-import { Inbox } from "lucide-react";
+import { Inbox, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const STAGE_TILE_STYLES: Record<string, string> = {
@@ -37,16 +39,32 @@ const STAGE_TILE_STYLES: Record<string, string> = {
 export default async function StaffRequestsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ department?: string; status?: string; priority?: string }>;
+  searchParams: Promise<{ department?: string; status?: string; priority?: string; q?: string }>;
 }) {
   const params = await searchParams;
   const allDepartments = await getDepartments();
+  const q = params.q?.trim();
 
   const conditions = [
-    params.department ? eq(requests.departmentId, params.department) : undefined,
-    params.status ? eq(requests.status, params.status as (typeof requests.$inferSelect)["status"]) : undefined,
-    params.priority
+    params.department && params.department !== "all"
+      ? eq(requests.departmentId, params.department)
+      : undefined,
+    params.status && params.status !== "all"
+      ? eq(requests.status, params.status as (typeof requests.$inferSelect)["status"])
+      : undefined,
+    params.priority && params.priority !== "all"
       ? eq(requests.priority, params.priority as (typeof requests.$inferSelect)["priority"])
+      : undefined,
+    q
+      ? or(
+          ilike(requests.referenceNo, `%${q}%`),
+          ilike(requests.description, `%${q}%`),
+          ilike(requests.aiSummary, `%${q}%`),
+          ilike(departments.name, `%${q}%`),
+          ilike(users.firstName, `%${q}%`),
+          ilike(users.lastName, `%${q}%`),
+          ilike(users.email, `%${q}%`),
+        )
       : undefined,
   ].filter(Boolean);
 
@@ -78,6 +96,7 @@ export default async function StaffRequestsPage({
     count: allForStats.filter((r) => r.status === stage).length,
   }));
   const overdueCount = allForStats.filter((r) => isRequestOverdue(r.dueDate, r.status)).length;
+  const hasFilters = params.department || params.status || params.priority || q;
 
   return (
     <div className="space-y-6">
@@ -106,52 +125,51 @@ export default async function StaffRequestsPage({
       </div>
 
       <form className="flex flex-wrap items-center gap-3" method="get">
-        <select
+        <div className="relative">
+          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
+            name="q"
+            defaultValue={q ?? ""}
+            placeholder="Search reference, requester, department, summary…"
+            aria-label="Search requests"
+            className="h-9 w-72 pl-8"
+          />
+        </div>
+        <FilterSelect
           name="department"
-          defaultValue={params.department ?? ""}
-          aria-label="Filter by department"
-          className="h-9 rounded-lg border border-input bg-transparent px-3 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
-        >
-          <option value="">All departments</option>
-          {allDepartments.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name}
-            </option>
-          ))}
-        </select>
-        <select
+          defaultValue={params.department}
+          ariaLabel="Filter by department"
+          options={[
+            { value: "all", label: "All departments" },
+            ...allDepartments.map((d) => ({ value: d.id, label: d.name })),
+          ]}
+        />
+        <FilterSelect
           name="status"
-          defaultValue={params.status ?? ""}
-          aria-label="Filter by status"
-          className="h-9 rounded-lg border border-input bg-transparent px-3 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
-        >
-          <option value="">All statuses</option>
-          {Object.entries(REQUEST_STATUS_LABELS).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-        <select
+          defaultValue={params.status}
+          ariaLabel="Filter by status"
+          options={[
+            { value: "all", label: "All statuses" },
+            ...Object.entries(REQUEST_STATUS_LABELS).map(([value, label]) => ({ value, label })),
+          ]}
+        />
+        <FilterSelect
           name="priority"
-          defaultValue={params.priority ?? ""}
-          aria-label="Filter by priority"
-          className="h-9 rounded-lg border border-input bg-transparent px-3 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
-        >
-          <option value="">All priorities</option>
-          {Object.entries(PRIORITY_LABELS).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
+          defaultValue={params.priority}
+          ariaLabel="Filter by priority"
+          options={[
+            { value: "all", label: "All priorities" },
+            ...Object.entries(PRIORITY_LABELS).map(([value, label]) => ({ value, label })),
+          ]}
+        />
         <button
           type="submit"
-          className="h-9 rounded-lg border border-input bg-secondary px-4 text-sm font-medium text-secondary-foreground transition-colors hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="h-9 cursor-pointer rounded-lg border border-input bg-secondary px-4 text-sm font-medium text-secondary-foreground transition-colors hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           Filter
         </button>
-        {(params.department || params.status || params.priority) && (
+        {hasFilters && (
           <Link
             href="/staff/requests"
             className="flex h-9 items-center px-2 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
