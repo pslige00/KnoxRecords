@@ -4,6 +4,7 @@ import { AppHeader } from "@/components/app-header";
 const NAV_ITEMS = [
   { href: "/staff/requests", label: "Requests" },
   { href: "/staff/accounts", label: "Account Approvals" },
+  { href: "/staff/audit", label: "Audit Log" },
 ];
 
 export default async function StaffLayout({
