@@ -214,7 +214,7 @@ export function SignupForm() {
               id="address1"
               name="address1"
               required
-              autoComplete="address-line1"
+              autoComplete="off"
               placeholder="e.g. 400 Main St, Knoxville, TN 37902"
               onBlur={handleAddressBlur}
               onChange={() => addressStatus !== "idle" && setAddressStatus("idle")}
