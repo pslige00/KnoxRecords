@@ -215,7 +215,7 @@ export function SignupForm() {
               name="address1"
               required
               autoComplete="address-line1"
-              placeholder="Start typing your full address..."
+              placeholder="e.g. 400 Main St, Knoxville, TN 37902"
               onBlur={handleAddressBlur}
               onChange={() => addressStatus !== "idle" && setAddressStatus("idle")}
               className="pr-8"
@@ -227,6 +227,12 @@ export function SignupForm() {
               <CheckCircle2 className="absolute right-2.5 top-1/2 size-4 -translate-y-1/2 text-emerald-600 dark:text-emerald-400" />
             )}
           </div>
+          {addressStatus === "idle" && (
+            <p className="text-xs text-muted-foreground">
+              Include your city and state (e.g. &quot;Knoxville, TN&quot;) and we&apos;ll fill in
+              city, state, and ZIP below automatically.
+            </p>
+          )}
           {addressStatus === "matched" && (
             <p className="text-xs text-muted-foreground">
               Address verified — city, state, and ZIP filled in below.
