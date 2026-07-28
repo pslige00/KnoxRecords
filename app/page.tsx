@@ -86,7 +86,7 @@ export default function Home() {
           <div className="mx-auto grid max-w-6xl gap-6 px-6 py-20 sm:grid-cols-3">
             {FEATURES.map((feature) => (
               <Card key={feature.title} className="border-none bg-transparent shadow-none">
-                <CardContent className="flex flex-col items-start gap-3 px-0">
+                <CardContent className="flex flex-col items-start gap-3">
                   <span
                     className={`flex size-10 items-center justify-center rounded-lg text-white ${feature.chipClassName}`}
                   >
